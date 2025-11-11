@@ -5,6 +5,7 @@
             [com.barbiff.domain.hardcorefunctionalprojection :as proj]
             [com.barbiff.domain.setlogging :as setlog]
             [com.barbiff.domain.events :as events]
+            [com.barbiff.exercise :as exercise]
             [xtdb.api :as xt]))
 
 ;; Workout Tracking
@@ -99,8 +100,22 @@
                       :progress progress  ; Add for debugging
                       :events events})))
 
+;; Exercise Library Handlers
+
+(defn exercises-page [{:keys [session biff/db]}]
+  (let [exercises (exercise/get-user-exercises db (:uid session))]
+    (ui/exercises-page {:exercises exercises})))
+
+(defn seed-exercises [{:keys [session] :as ctx}]
+  (let [uid (:uid session)
+        exercise-entities (exercise/seed-exercises-for-user uid)]
+    (biff/submit-tx ctx exercise-entities)
+    {:status 303 :headers {"location" "/app/exercises"}}))
+
 (def module
   {:routes ["/app" {:middleware [mid/wrap-signed-in]}
             ["/workout" {:get workout-page}]
             ["/workout/log-event" {:post log-event}]
-            ["/workout/log-set" {:post log-event}]]})
+            ["/workout/log-set" {:post log-event}]
+            ["/exercises" {:get exercises-page}]
+            ["/exercises/seed" {:post seed-exercises}]]})

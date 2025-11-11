@@ -1,7 +1,8 @@
 (ns com.barbiff.exercise
   "Exercise library management - CRUD operations for exercises."
   (:require [clojure.edn :as edn]
-            [clojure.java.io :as io]))
+            [clojure.java.io :as io]
+            [com.biffweb :as biff]))
 
 ;; Exercise Creation
 
@@ -19,6 +20,7 @@
    - max-recoverable-sets: Integer"
   [{:keys [name muscle-groups user-id equipment notes max-recoverable-sets]}]
   (cond-> {:xt/id (random-uuid)
+           :db/doc-type :exercise
            :exercise/name name
            :exercise/muscle-groups muscle-groups
            :exercise/user user-id
@@ -52,20 +54,20 @@
   "Get all exercises for a user from the database."
   [db user-id]
   (map first
-       (com.biffweb/q db
-                      '{:find [(pull exercise [*])]
-                        :in [user-id]
-                        :where [[exercise :exercise/user user-id]]}
-                      user-id)))
+       (biff/q db
+               '{:find [(pull exercise [*])]
+                 :in [user-id]
+                 :where [[exercise :exercise/user user-id]]}
+               user-id)))
 
 (defn get-exercise-by-name
   "Find an exercise by name for a specific user."
   [db user-id exercise-name]
   (ffirst
-   (com.biffweb/q db
-                  '{:find [(pull exercise [*])]
-                    :in [user-id exercise-name]
-                    :where [[exercise :exercise/user user-id]
-                            [exercise :exercise/name exercise-name]]}
-                  user-id
-                  exercise-name)))
+   (biff/q db
+           '{:find [(pull exercise [*])]
+             :in [user-id exercise-name]
+             :where [[exercise :exercise/user user-id]
+                     [exercise :exercise/name exercise-name]]}
+           user-id
+           exercise-name)))

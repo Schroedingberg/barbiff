@@ -15,6 +15,7 @@
    rendering Hiccup data structures."
   (:require [cheshire.core :as cheshire]
             [clojure.java.io :as io]
+            [clojure.string :as str]
             [com.barbiff.settings :as settings]
             [com.barbiff.domain.workout-filtering :as wf]
             [com.biffweb :as biff]
@@ -322,8 +323,10 @@
                [:button.btn.btn-ghost.btn-xs.uppercase {:type "submit"} "Sign out"])]])
 
 (defn page-controls []
-  [:div.px-4.py-2.flex.gap-2
-   (control-button "workout-completed" "Complete Workout" "✓")])
+  [:div.px-4.py-2.flex.gap-2.justify-between
+   [:div.flex.gap-2
+    (control-button "workout-completed" "Complete Workout" "✓")]
+   [:a.btn.btn-ghost.btn-sm {:href "/app/exercises"} "Exercise Library"]])
 
 (defn debug-section [projection-events merged-plan progress]
   [:details.mx-4.mb-4 {:class "bg-warning/10 border border-warning p-2"}
@@ -342,6 +345,41 @@
                                 (if (empty? events)
                                   [:p {:class "text-center text-base-content/40 py-4"} "No events yet"]
                                   (into (spacer 2) (render-items (reverse events) (fn [_ e] (render-event e)))))]])
+
+(defn exercises-page [{:keys [exercises]}]
+  (page
+   {}
+   [:main.relative.flex.h-full.w-full.flex-col
+    [:div.flex.min-h-0.grow.flex-col.p-6
+     [:div.flex.items-center.justify-between.mb-6
+      [:h1.text-3xl.font-bold "Exercise Library"]
+      [:a.btn.btn-ghost {:href "/app"} "← Back to Workouts"]]
+
+     (if (empty? exercises)
+       [:div.text-center.py-12
+        [:p.text-lg.mb-4 "No exercises yet."]
+        (biff/form
+         {:action "/app/exercises/seed"}
+         [:button.btn.btn-primary {:type "submit"} "Load Default Exercises"])]
+
+       [:div
+        [:table.table.table-zebra.w-full
+         [:thead
+          [:tr
+           [:th "Exercise"]
+           [:th "Muscle Groups"]
+           [:th "Equipment"]
+           [:th "Max Recoverable Sets"]
+           [:th "Notes"]]]
+         [:tbody
+          (for [exercise exercises]
+            [:tr {:key (:xt/id exercise)}
+             [:td (:exercise/name exercise)]
+             [:td (str/join ", " (map name (:exercise/muscle-groups exercise)))]
+             [:td (when-let [eq (:exercise/equipment exercise)]
+                    (str/join ", " (map name eq)))]
+             [:td (:exercise/max-recoverable-sets exercise)]
+             [:td.text-sm.text-gray-600 (:exercise/notes exercise)]])]]])]]))
 
 (defn workout-page [{:keys [email merged-plan projection-events progress events]}]
   (page
