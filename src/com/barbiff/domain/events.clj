@@ -42,6 +42,8 @@
   "Convert a domain event to a database event document for persistence.
    
    Adds DB-specific metadata to pure domain events before storage.
+   Optionally accepts an offset-ms to slightly adjust timestamp for ordering
+   multiple events in the same logical transaction.
    
    Example:
      {:type :set-logged 
@@ -51,7 +53,7 @@
      =>
      {:db/doc-type :event
       :event/user <uid>
-      :event/timestamp :db/now
+      :event/timestamp <instant>
       :event/type :set-logged
       :event/exercise \"Bench Press\"
       :event/weight 100
@@ -60,14 +62,16 @@
    The :event/ namespace prefix allows XTDB queries like:
      {:find [(pull event [*])]
       :where [[event :event/user uid] [event :event/type]]}"
-  [uid domain-event]
-  (let [base {:db/doc-type :event
-              :event/user uid
-              :event/timestamp :db/now
-              :event/type (:type domain-event)}]
-    (cond-> base
-      (:exercise domain-event) (assoc :event/exercise (:exercise domain-event))
-      (:weight domain-event) (assoc :event/weight (:weight domain-event))
-      (:reps domain-event) (assoc :event/reps (:reps domain-event))
-      (:name domain-event) (assoc :event/name (:name domain-event))
-      (:day domain-event) (assoc :event/day (name (:day domain-event))))))
+  ([uid domain-event]
+   (->db-event uid domain-event 0))
+  ([uid domain-event offset-ms]
+   (let [base {:db/doc-type :event
+               :event/user uid
+               :event/timestamp (java.util.Date. (+ (System/currentTimeMillis) offset-ms))
+               :event/type (:type domain-event)}]
+     (cond-> base
+       (:exercise domain-event) (assoc :event/exercise (:exercise domain-event))
+       (:weight domain-event) (assoc :event/weight (:weight domain-event))
+       (:reps domain-event) (assoc :event/reps (:reps domain-event))
+       (:name domain-event) (assoc :event/name (:name domain-event))
+       (:day domain-event) (assoc :event/day (name (:day domain-event)))))))

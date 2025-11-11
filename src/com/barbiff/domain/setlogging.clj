@@ -37,58 +37,53 @@
 
 ;; Event Generation for Set Logging
 
+(defn find-active-workout
+  "Find the currently active workout from events.
+   Returns the workout-started event if a workout is active, nil otherwise."
+  [events]
+  (let [starts (filter #(= :workout-started (:type %)) events)
+        ends (filter #(= :workout-completed (:type %)) events)]
+    (when (> (count starts) (count ends))
+      (last starts))))
+
+(defn exercise-belongs-to-workout?
+  "Check if an exercise belongs to a workout."
+  [exercise-name workout-event plan]
+  (when-let [workout (some #(when (= (:name %) (:name workout-event))
+                              %)
+                           (mapcat :workouts (:microcycles plan)))]
+    (some #(= exercise-name (:name %)) (:exercises workout))))
+
 (defn required-startup-events
   "Generate startup events needed before logging a set.
    Returns a sequence of events required to establish session context.
    
    Logic:
    - If no active microcycle, create microcycle-started event
+   - If active workout exists but exercise doesn't belong to it, complete current and start new
    - If no active workout, create workout-started event with name/day from plan
    - Otherwise, return empty sequence
    
-   TODO/KNOWN ISSUE: Workout separation bug
-   ========================================
-   This function doesn't check if the exercise belongs to the CURRENT workout.
-   It only checks if ANY workout is active.
-   
-   Problem:
-   If you're in the middle of \"Upper\" workout and try to log a set for \"Squat\"
-   (which belongs to \"Lower\" workout), this function will NOT start a new workout.
-   Instead, the Squat set gets added to the Upper workout, causing all exercises
-   to group incorrectly in the first workout.
-   
-   Why it happens:
-   - active-session? only counts workout-started vs workout-completed events
-   - It doesn't validate that the active workout actually contains this exercise
-   
-   How to fix:
-   1. Add a helper: (exercise-belongs-to-workout? exercise-name workout)
-   2. Check if current active workout contains the exercise
-   3. If not, emit workout-completed for current + workout-started for correct one
-   4. This would auto-transition between workouts when user switches exercises
-   
-   Example fix:
-   (let [active-workout (find-active-workout events plan)
-         exercise-workout (find-workout-for-exercise plan exercise-name)
-         needs-workout-change? (and active-workout
-                                    (not= (:name active-workout)
-                                          (:name exercise-workout)))]
-     (cond-> []
-       needs-workout-change? (conj (make-event :workout-completed {}))
-       (or needs-workout? needs-workout-change?) (conj workout-started-event)))"
+   This handles automatic workout transitions when user logs sets for exercises
+   from different workouts."
   [events plan exercise-name]
   (let [needs-microcycle? (not (active-session? events :microcycle))
-        needs-workout? (not (active-session? events :workout))
-        workout (when needs-workout?
-                  (find-workout-for-exercise plan exercise-name))]
+        active-workout (find-active-workout events)
+        target-workout (find-workout-for-exercise plan exercise-name)
+        needs-workout-change? (and active-workout
+                                   target-workout
+                                   (not (exercise-belongs-to-workout? exercise-name active-workout plan)))
+        needs-workout-start? (or (not active-workout) needs-workout-change?)]
     (vec
      (concat
       (when needs-microcycle?
         [(make-event :microcycle-started {})])
-      (when (and needs-workout? workout)
+      (when needs-workout-change?
+        [(make-event :workout-completed {})])
+      (when (and needs-workout-start? target-workout)
         [(make-event :workout-started
-                     {:name (:name workout)
-                      :day (:day workout)})])))))
+                     {:name (:name target-workout)
+                      :day (:day target-workout)})])))))
 
 (defn set-logged-event
   "Create a set-logged event from parameters.

@@ -54,7 +54,9 @@
         events (get-user-events db uid)
         {:keys [type exercise-id weight reps]} (events/parse-params params)]
 
-    (when (and (= type :set-logged) exercise-id weight reps)
+    (cond
+      ;; Handle set logging
+      (and (= type :set-logged) exercise-id weight reps)
       (let [;; Convert DB events to domain events for business logic
             projection-events (->> events
                                    (map setlog/normalize-event)
@@ -68,9 +70,18 @@
                                                      reps)
 
             ;; Convert back to DB events for persistence
-            db-events (map #(events/->db-event uid %) domain-events)]
+            ;; Use millisecond offsets to preserve ordering within batch
+            db-events (map-indexed (fn [idx event]
+                                     (events/->db-event uid event idx))
+                                   domain-events)]
 
-        (biff/submit-tx ctx db-events)))
+        (biff/submit-tx ctx db-events))
+
+      ;; Handle workout completion
+      (= type :workout-completed)
+      (let [domain-event {:type :workout-completed}
+            db-event (events/->db-event uid domain-event)]
+        (biff/submit-tx ctx [db-event])))
 
     {:status 303 :headers {"location" "/app/workout"}}))
 

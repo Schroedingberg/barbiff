@@ -13,6 +13,7 @@
   (println "Running tests...")
   (require 'com.barbiff-test)
   (require 'com.domain.hardcorefunctionalprojection-test)
+  (require 'com.domain.setlogging-test)
   (test/run-all-tests))
 
 (defn test-domain
