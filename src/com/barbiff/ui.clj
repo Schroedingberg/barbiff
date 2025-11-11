@@ -125,6 +125,8 @@
 ;; Includes input rows (for logging new sets) and completed rows (for showing logged sets).
 ;; Uses wf/set-complete? from domain layer to determine set state.
 
+;; Grid layout for set rows: 8 columns total
+;; [weight: 3 cols] [reps: 3 cols] [spacer: 1 col] [log button: 1 col]
 (def set-grid-layout "grid.w-full.grid-cols-8.pr-4")
 (def set-col-weight "col-span-3.flex.items-center.justify-center")
 (def set-col-reps "col-span-3.flex.items-center.justify-center")
@@ -132,8 +134,16 @@
 (def set-col-log "col-span-1.flex.items-center.justify-end")
 (def set-input-width "w-4/5 desktop:w-2/3")
 
-(defn set-grid-cell [col-class & content]
+(defn set-grid-cell
+  "Create a grid cell div with the given column classes.
+   Takes a class string like 'col-span-3.flex.items-center' and content."
+  [col-class & content]
   (into [(keyword (str "div." col-class))] content))
+
+(defn set-grid
+  "Create the main grid container div for a set row."
+  [& content]
+  (into [(keyword (str "div." set-grid-layout))] content))
 
 (defn set-value-wrapper [value]
   [:div.relative.flex.w-full.items-center.justify-center
@@ -152,7 +162,7 @@
    (hidden "event/exercise" exercise-name)
    [:div.flex.items-center
     [:div.w-8.shrink-0]
-    [(keyword (str "div." set-grid-layout))
+    (set-grid
      (set-grid-cell set-col-weight
                     (set-input-wrapper "event/weight"
                                        {:step "0.5" :required true :disabled (not enabled?)
@@ -164,16 +174,16 @@
      (set-grid-cell set-col-spacer)
      (set-grid-cell set-col-log
                     [:button.disabled:cursor-not-allowed {:type "submit" :disabled (not enabled?)}
-                     (log-checkbox (if enabled? :enabled :disabled))])]]))
+                     (log-checkbox (if enabled? :enabled :disabled))]))]))
 
 (defn set-completed-row [set-data]
   [:div.flex.items-center
    [:div.w-8.shrink-0]
-   [(keyword (str "div." set-grid-layout))
+   (set-grid
     (set-grid-cell set-col-weight (set-value-wrapper (:actual-weight set-data)))
     (set-grid-cell set-col-reps (set-value-wrapper (:actual-reps set-data)))
     (set-grid-cell set-col-spacer)
-    (set-grid-cell set-col-log (log-checkbox :checked))]])
+    (set-grid-cell set-col-log (log-checkbox :checked)))])
 
 (defn render-set [idx exercise-name set-data is-first-incomplete?]
   (let [is-complete? (wf/set-complete? set-data)]
@@ -201,11 +211,11 @@
   [:div.relative.mt-2
    [:div.ml-4.flex.items-center
     [:div.h-8.w-8.shrink-0]
-    [(keyword (str "div." set-grid-layout))
+    (set-grid
      (set-grid-cell set-col-weight [:div.text-center.text-sm.font-medium.uppercase "weight"])
      (set-grid-cell set-col-reps [:div.text-center.text-sm.font-medium.uppercase "reps"])
      (set-grid-cell set-col-spacer)
-     (set-grid-cell set-col-log [:div.pr-1.text-sm.font-medium.uppercase "log"])]]])
+     (set-grid-cell set-col-log [:div.pr-1.text-sm.font-medium.uppercase "log"]))]])
 
 (defn exercise-sets-list [exercise]
   (let [sets (:sets exercise)]

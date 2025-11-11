@@ -289,64 +289,25 @@
   ;; - Incomplete workouts)
 
 
-  ;; COMPARISON: This approach vs projection.clj
-  ;; ============================================
+  ;; DESIGN DECISION: Lazy recursion vs eager reduce
+  ;; ================================================
   ;;
-  ;; This file: ~50 lines of code (excluding comments/tests)
-  ;; projection.clj: ~90 lines of code
+  ;; This implementation uses lazy-seq recursion (~50 LOC).
+  ;; Alternative: projection.clj uses eager reduce (~90 LOC).
   ;;
-  ;; Simplicity Comparison:
-  ;;
-  ;; 1. Core parsing primitive:
-  ;;    - This: Recursive lazy-seq with take-until (12 lines)
-  ;;    - projection.clj: Reduce with explicit state tracking (20 lines)
-  ;;    
-  ;;    Winner: This approach - classic functional recursion, easier to reason about
-  ;;
-  ;; 2. Transformation functions:
-  ;;    - This: Identical (->set, ->exercise, ->workout, ->microcycle)
-  ;;    - projection.clj: Identical
-  ;;    
-  ;;    Winner: Tie - same approach
-  ;;
-  ;; 3. Mental model:
-  ;;    - This: "Find start, take until end, recurse" - one clear pattern
-  ;;    - projection.clj: "Accumulate sections while tracking current" - state machine
-  ;;    
-  ;;    Winner: This approach - simpler mental model
-  ;;
-  ;; 4. Performance:
-  ;;    - This: Lazy sequences, minimal memory, recursive
-  ;;    - projection.clj: Eager reduce, one pass, accumulator
-  ;;    
-  ;;    Winner: projection.clj - slightly faster for large logs (but negligible for real use)
-  ;;
-  ;; 5. Debuggability:
-  ;;    - This: Can inspect lazy sequences at each step
-  ;;    - projection.clj: Need to trace reduce accumulator
-  ;;    
-  ;;    Winner: This approach - easier to see intermediate results
-  ;;
-  ;; 6. Extensibility:
-  ;;    - This: Add new section types = reuse sections-between
-  ;;    - projection.clj: Add new section types = reuse sections-between
-  ;;    
-  ;;    Winner: Tie - both equally extensible
-  ;;
-  ;; Overall Simplicity Winner: THIS APPROACH
+  ;; Why lazy-seq wins for this use case:
   ;; 
-  ;; Reasons:
-  ;; - Fewer lines of code
-  ;; - Classic functional pattern (recursion + lazy-seq)
-  ;; - No explicit state to track
-  ;; - More composable (lazy sequences)
-  ;; - Easier mental model
+  ;; 1. Mental model: "Find start, take until end, recurse" 
+  ;;    vs "Accumulate sections while tracking current" (state machine)
   ;;
-  ;; When to use projection.clj approach:
-  ;; - Very large event logs (millions of events) where lazy-seq overhead matters
-  ;; - When you need strict control over memory/performance
-  ;; - When the team is more comfortable with reduce patterns
+  ;; 2. Simplicity: No explicit state, classic functional pattern
+  ;;    Can inspect intermediate results at each step
   ;;
-  ;; Recommendation: Use this approach unless performance profiling shows otherwise.
+  ;; 3. Tradeoffs: Slightly slower for huge logs (millions of events)
+  ;;    but negligible for real workout logs (hundreds of events)
+  ;;
+  ;; Recommendation: Use this approach unless profiling shows otherwise.
   ;; "Make it work, make it right, make it fast" - start here.
+  ;;
+  ;; See git history or projection.clj for the reduce-based alternative.
   )

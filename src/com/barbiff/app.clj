@@ -4,6 +4,7 @@
             [com.barbiff.ui :as ui]
             [com.barbiff.domain.hardcorefunctionalprojection :as proj]
             [com.barbiff.domain.setlogging :as setlog]
+            [com.barbiff.domain.events :as events]
             [xtdb.api :as xt]))
 
 ;; Workout Tracking
@@ -22,61 +23,12 @@
                                          {:prescribed-reps 5 :prescribed-weight 140}
                                          {:prescribed-reps 5 :prescribed-weight 140}]}]}]}]})
 
-;; HTTP Parameter Parsing
-
-(defn parse-params
-  "Parse HTTP form parameters into a simple domain map.
-   
-   Converts string keys to keywords and parses numeric values.
-   This is the entry point of the transformation pipeline:
-   HTTP params → domain map → domain events → DB events"
-  [params]
-  {:type (keyword (get params "event/type"))
-   :exercise-id (get params "event/exercise")
-   :weight (when-let [w (get params "event/weight")] (when (seq w) (Double/parseDouble w)))
-   :reps (when-let [r (get params "event/reps")] (when (seq r) (Integer/parseInt r)))})
-
 ;; Database Queries
 
 (defn get-user-events [db uid]
   (sort-by :event/timestamp
            (q db '{:find (pull event [*]) :in [uid]
                    :where [[event :event/user uid] [event :event/type]]} uid)))
-
-;; Domain Event to DB Event Conversion
-
-(defn ->db-event
-  "Convert a domain event to a database event document for persistence.
-   
-   This is the final step in the transformation pipeline, adding DB-specific
-   metadata to pure domain events before they're stored.
-   
-   Domain events (from business logic):
-     {:type :set-logged :exercise \"Bench Press\" :weight 100 :reps 8}
-   
-   DB events (for XTDB persistence):
-     {:db/doc-type :event
-      :event/user <uid>
-      :event/timestamp :db/now
-      :event/type :set-logged
-      :event/exercise \"Bench Press\"
-      :event/weight 100
-      :event/reps 8}
-   
-   The :event/ namespace prefix allows XTDB queries like:
-     {:find [(pull event [*])]
-      :where [[event :event/user uid] [event :event/type]]}"
-  [uid domain-event]
-  (let [base {:db/doc-type :event
-              :event/user uid
-              :event/timestamp :db/now
-              :event/type (:type domain-event)}]
-    (cond-> base
-      (:exercise domain-event) (assoc :event/exercise (:exercise domain-event))
-      (:weight domain-event) (assoc :event/weight (:weight domain-event))
-      (:reps domain-event) (assoc :event/reps (:reps domain-event))
-      (:name domain-event) (assoc :event/name (:name domain-event))
-      (:day domain-event) (assoc :event/day (name (:day domain-event))))))
 
 ;; HTTP Handler
 
@@ -100,7 +52,7 @@
   [{:keys [session params biff/db] :as ctx}]
   (let [uid (:uid session)
         events (get-user-events db uid)
-        {:keys [type exercise-id weight reps]} (parse-params params)]
+        {:keys [type exercise-id weight reps]} (events/parse-params params)]
 
     (when (and (= type :set-logged) exercise-id weight reps)
       (let [;; Convert DB events to domain events for business logic
@@ -116,7 +68,7 @@
                                                      reps)
 
             ;; Convert back to DB events for persistence
-            db-events (map #(->db-event uid %) domain-events)]
+            db-events (map #(events/->db-event uid %) domain-events)]
 
         (biff/submit-tx ctx db-events)))
 
