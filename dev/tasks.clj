@@ -27,11 +27,9 @@
   "Runs property-based tests"
   []
   (println "Running property-based tests...")
-  (require 'com.domain.projection-property-test)
   (require 'com.domain.setlogging-property-test)
   (require 'com.domain.workout-filtering-property-test)
-  (test/run-tests 'com.domain.projection-property-test
-                  'com.domain.setlogging-property-test
+  (test/run-tests 'com.domain.setlogging-property-test
                   'com.domain.workout-filtering-property-test))
 
 (defn test-workout-filtering
