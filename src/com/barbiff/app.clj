@@ -73,101 +73,6 @@
     (biff/submit-tx ctx events-to-submit)
     {:status 303 :headers {"location" "/app/workout"}}))
 
-(defn set-status [set-data]
-  (let [complete? (and (= (:prescribed-weight set-data) (:actual-weight set-data))
-                       (= (:prescribed-reps set-data) (:actual-reps set-data))
-                       (:actual-weight set-data) (:actual-reps set-data))]
-    (cond complete? {:class "bg-green-50 border-green-300" :icon "✅"}
-          (and (:actual-weight set-data) (:actual-reps set-data)) {:class "bg-yellow-50 border-yellow-300" :icon "💪"}
-          :else {:class "bg-gray-50 border-gray-200" :icon nil})))
-
-(defn set-input [exercise-name set-data]
-  (biff/form
-   {:action "/app/workout/log-set" :class "flex gap-2 items-center"}
-   [:input {:type "hidden" :name "event/type" :value "set-logged"}]
-   [:input {:type "hidden" :name "event/exercise" :value exercise-name}]
-   [:input.w-16.text-sm.px-2.py-1.border.rounded
-    {:type "number" :name "event/weight" :step "0.5" :required true
-     :placeholder (str (:prescribed-weight set-data))
-     :defaultValue (:prescribed-weight set-data)}]
-   [:span.text-xs.text-gray-500 "kg ×"]
-   [:input.w-12.text-sm.px-2.py-1.border.rounded
-    {:type "number" :name "event/reps" :required true
-     :placeholder (str (:prescribed-reps set-data))
-     :defaultValue (:prescribed-reps set-data)}]
-   [:button.bg-green-600.hover:bg-green-700.text-white.px-3.py-1.text-xs.rounded.font-semibold
-    {:type "submit"} "✓"]))
-
-(defn render-set [_idx exercise-name set-data]
-  (let [{:keys [class icon]} (set-status set-data)
-        has-actual? (and (:actual-weight set-data) (:actual-reps set-data))]
-    [:.p-3.rounded.border {:class class}
-     [:div.flex.justify-between.items-start.gap-4
-      [:div.flex-1
-       (when (or (:prescribed-weight set-data) (:prescribed-reps set-data))
-         [:div.text-sm.text-gray-600.mb-1
-          "📋 Planned: " (:prescribed-weight set-data) "kg × " (:prescribed-reps set-data) " reps"])
-       (if has-actual?
-         [:div.font-semibold
-          (when icon [:<> icon " "])
-          "Actual: " (:actual-weight set-data) "kg × " (:actual-reps set-data) " reps"]
-         [:div.text-sm.text-gray-400.italic "Click ✓ to log →"])]
-      (when-not has-actual? [:div (set-input exercise-name set-data)])]]))
-
-(defn render-items [items render-fn]
-  (map-indexed (fn [i item] ^{:key i} (render-fn i item)) items))
-
-(defn render-exercise [exercise]
-  [:.mb-4.p-4.bg-white.border.border-gray-200.rounded-lg
-   [:h4.text-lg.font-semibold.mb-3 (:name exercise)]
-   [:div.space-y-2 (render-items (:sets exercise) #(render-set %1 (:name exercise) %2))]])
-
-(defn render-workout [workout]
-  [:.mb-6.p-4.bg-gray-50.rounded-lg.border-2.border-gray-300
-   [:div.flex.justify-between.items-center.mb-4
-    [:h3.text-xl.font-bold (:name workout)]
-    [:span.text-sm.text-gray-600 "Day: " (name (or (:day workout) :unknown))]]
-   [:div.space-y-3 (render-items (:exercises workout) (fn [_ e] (render-exercise e)))]])
-
-(defn render-microcycle [idx microcycle]
-  [:.mb-8.p-6.bg-white.rounded-xl.shadow-md
-   [:h2.text-2xl.font-bold.mb-6 "Microcycle " (inc idx)]
-   [:div.space-y-4 (render-items (:workouts microcycle) (fn [_ w] (render-workout w)))]])
-
-(defn render-projection [events]
-  (let [merged (proj/merge-plan-with-progress sample-plan (proj/build-state events))]
-    [:div
-     [:h2.text-2xl.font-bold.mb-6 "Training Plan with Progress"]
-     [:div.space-y-6 (render-items (:microcycles merged) render-microcycle)]]))
-
-(defn control-button [type label icon]
-  (biff/form
-   {:action "/app/workout/log-event" :class "inline"}
-   [:input {:type "hidden" :name "event/type" :value type}]
-   [:button.btn.bg-blue-600.hover:bg-blue-700 {:type "submit"} icon " " label]))
-
-(defn workout-controls []
-  [:div.mb-6.p-4.bg-blue-50.rounded-lg.shadow
-   [:h3.text-lg.font-semibold.mb-3 "Session Controls"]
-   [:p.text-sm.text-gray-600.mb-3 "Just log sets by clicking ✓ below. Workouts and microcycles start automatically!"]
-   [:div.flex.flex-wrap.gap-3
-    (control-button "workout-completed" "Complete Workout" "✅")
-    (control-button "microcycle-completed" "Complete Microcycle" "🏆")]])
-
-(defn render-event-field [label value & [suffix]]
-  (when value [:div.text-gray-700 label ": " value suffix]))
-
-(defn render-event [event]
-  [:.p-3.bg-white.rounded.border.border-gray-200.text-sm
-   [:div.flex.justify-between
-    [:span.font-mono.text-blue-600 (:event/type event)]
-    [:span.text-gray-500 (biff/format-date (:event/timestamp event) "HH:mm:ss")]]
-   (render-event-field "Name" (:event/name event))
-   (render-event-field "Day" (:event/day event))
-   (render-event-field "Exercise" (:event/exercise event))
-   (render-event-field "Weight" (:event/weight event) "kg")
-   (render-event-field "Reps" (:event/reps event))])
-
 (defn ->projection-event [e]
   (cond-> {:type (:event/type e)}
     (:event/name e) (assoc :name (:event/name e))
@@ -186,34 +91,12 @@
 (defn workout-page [{:keys [session biff/db]}]
   (let [{:user/keys [email]} (xt/entity db (:uid session))
         events (get-user-events db (:uid session))
-        projection-events (->> events (map normalize-event) (map ->projection-event))]
-    (ui/page
-     {}
-     [:div.max-w-6xl.mx-auto
-      [:div.flex.justify-between.items-center.mb-6
-       [:h1.text-3xl.font-bold "Workout Tracker"]
-       [:div
-        [:span.text-gray-600 email " | "]
-        (biff/form {:action "/auth/signout" :class "inline"}
-                   [:button.text-blue-500.hover:text-blue-800 {:type "submit"} "Sign out"])]]
-
-      (workout-controls)
-
-      [:details.mb-4.p-4.bg-yellow-50.rounded
-       [:summary.cursor-pointer.font-semibold "Debug: View Projection Events"]
-       [:pre.text-xs.overflow-auto (pr-str projection-events)]]
-
-      [:div.p-6.bg-white.rounded-xl.shadow-md.mb-8
-       (render-projection projection-events)]
-
-      [:details.mb-8
-       [:summary.cursor-pointer.text-lg.font-semibold.p-4.bg-gray-100.rounded.hover:bg-gray-200
-        "📜 View Raw Event Log (" (count events) " events)"]
-       [:div.mt-4.p-6.bg-white.rounded-xl.shadow-md
-        [:div.space-y-2
-         (if (empty? events)
-           [:p.text-gray-500 "No events yet"]
-           (render-items (reverse events) (fn [_ e] (render-event e))))]]]])))
+        projection-events (->> events (map normalize-event) (map ->projection-event))
+        merged-plan (proj/merge-plan-with-progress sample-plan (proj/build-state projection-events))]
+    (ui/workout-page {:email email
+                      :merged-plan merged-plan
+                      :projection-events projection-events
+                      :events events})))
 
 (def module
   {:routes ["/app" {:middleware [mid/wrap-signed-in]}
