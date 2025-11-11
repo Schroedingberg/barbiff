@@ -1,0 +1,1 @@
+(ns com.domain.projection-property-test)

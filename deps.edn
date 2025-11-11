@@ -8,7 +8,8 @@
         org.slf4j/jul-to-slf4j     {:mvn/version "1.7.36"}
         org.slf4j/jcl-over-slf4j   {:mvn/version "1.7.36"}}
  :aliases
- {:dev {:extra-deps {com.biffweb/tasks {:git/url "https://github.com/jacobobryant/biff", :git/sha "12d4ac6", :git/tag "v1.9.0", :deps/root "libs/tasks"}}
+ {:dev {:extra-deps {com.biffweb/tasks {:git/url "https://github.com/jacobobryant/biff", :git/sha "12d4ac6", :git/tag "v1.9.0", :deps/root "libs/tasks"}
+                     org.clojure/test.check {:mvn/version "1.1.1"}}
         :extra-paths ["dev" "test"]
         :jvm-opts ["-XX:-OmitStackTraceInFastThrow"
                    "-XX:+CrashOnOutOfMemoryError"

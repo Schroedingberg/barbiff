@@ -22,11 +22,21 @@
   (require 'com.domain.hardcorefunctionalprojection-test)
   (test/run-tests 'com.domain.hardcorefunctionalprojection-test))
 
+(defn test-property
+  "Runs property-based tests"
+  []
+  (println "Running property-based tests...")
+  (require 'com.domain.projection-property-test)
+  (require 'com.domain.setlogging-property-test)
+  (test/run-tests 'com.domain.projection-property-test
+                  'com.domain.setlogging-property-test))
+
 ;; Tasks should be vars (#'hello instead of hello) so that `clj -M:dev help` can
 ;; print their docstrings.
 (def custom-tasks
   {"hello" #'hello
    "test" #'test-all
-   "test-domain" #'test-domain})
+   "test-domain" #'test-domain
+   "test-property" #'test-property})
 
 (def tasks (merge tasks/tasks custom-tasks))
