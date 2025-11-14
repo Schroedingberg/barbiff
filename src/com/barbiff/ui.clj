@@ -326,9 +326,7 @@
   [:div.px-4.py-2.flex.gap-2.justify-between
    [:div.flex.gap-2
     (control-button "workout-completed" "Complete Workout" "✓")]
-   [:div.flex.gap-2
-    [:a.btn.btn-ghost.btn-sm {:href "/app/templates"} "Templates"]
-    [:a.btn.btn-ghost.btn-sm {:href "/app/exercises"} "Exercises"]]])
+   [:div.flex.gap-2]])
 
 (defn debug-section [projection-events merged-plan progress]
   [:details.mx-4.mb-4 {:class "bg-warning/10 border border-warning p-2"}
@@ -348,175 +346,15 @@
                                   [:p {:class "text-center text-base-content/40 py-4"} "No events yet"]
                                   (into (spacer 2) (render-items (reverse events) (fn [_ e] (render-event e)))))]])
 
-(defn exercises-page [{:keys [exercises]}]
-  (page
-   {}
-   [:main.relative.flex.h-full.w-full.flex-col
-    [:div.flex.min-h-0.grow.flex-col.p-6
-     [:div.flex.items-center.justify-between.mb-6
-      [:h1.text-3xl.font-bold "Exercise Library"]
-      [:a.btn.btn-ghost {:href "/app"} "← Back to Workouts"]]
 
-     (if (empty? exercises)
-       [:div.text-center.py-12
-        [:p.text-lg.mb-4 "No exercises yet."]
-        (biff/form
-         {:action "/app/exercises/seed"}
-         [:button.btn.btn-primary {:type "submit"} "Load Default Exercises"])]
 
-       [:div
-        [:table.table.table-zebra.w-full
-         [:thead
-          [:tr
-           [:th "Exercise"]
-           [:th "Muscle Groups"]
-           [:th "Equipment"]
-           [:th "Max Recoverable Sets"]
-           [:th "Notes"]]]
-         [:tbody
-          (for [exercise exercises]
-            [:tr {:key (:xt/id exercise)}
-             [:td (:exercise/name exercise)]
-             [:td (str/join ", " (map name (:exercise/muscle-groups exercise)))]
-             [:td (when-let [eq (:exercise/equipment exercise)]
-                    (str/join ", " (map name eq)))]
-             [:td (:exercise/max-recoverable-sets exercise)]
-             [:td.text-sm.text-gray-600 (:exercise/notes exercise)]])]]])]]))
 
-(defn templates-page [{:keys [templates]}]
-  (page
-   {}
-   [:main.relative.flex.h-full.w-full.flex-col
-    [:div.flex.min-h-0.grow.flex-col.p-6
-     [:div.flex.items-center.justify-between.mb-6
-      [:h1.text-3xl.font-bold "Templates"]
-      [:div.flex.gap-2
-       [:a.btn.btn-primary {:href "/app/templates/new"} "New Template"]
-       [:a.btn.btn-ghost {:href "/app"} "← Back"]]]
 
-     (if (empty? templates)
-       [:div.text-center.py-12
-        [:p.text-lg.mb-4 "No templates yet."]
-        [:a.btn.btn-primary {:href "/app/templates/new"} "Create Your First Template"]]
 
-       [:div.grid.gap-4
-        (for [template templates]
-          [:div.card.bg-base-100.shadow-xl {:key (:xt/id template)}
-           [:div.card-body
-            [:h2.card-title (:template/name template)]
-            [:p.text-sm.text-gray-600
-             "Created " (str (:template/created-at template))]
-            [:div.card-actions.justify-end
-             [:a.btn.btn-sm.btn-primary {:href (str "/app/templates/view/" (:xt/id template))}
-              "View"]]]])])]]))
 
-(defn workout-form [{:keys [workout-id exercises]}]
-  [:div.border.border-base-300.rounded-lg.p-4
-   [:div.flex.justify-between.items-start.mb-2
-    [:h4.font-bold (str "Workout " (inc workout-id))]
-    [:button.btn.btn-xs.btn-ghost
-     {:type "button"
-      :hx-delete (str "/app/templates/workout-form/" workout-id)
-      :hx-target "closest div"
-      :hx-swap "outerHTML"}
-     "Remove"]]
-   [:div.grid.grid-cols-2.gap-2.mb-2
-    [:div.form-control
-     [:label.label [:span.label-text "Name"]]
-     [:input.input.input-sm.input-bordered
-      {:type "text"
-       :name (str "workout[" workout-id "][name]")
-       :required true
-       :placeholder "Upper"}]]
-    [:div.form-control
-     [:label.label [:span.label-text "Day"]]
-     [:select.select.select-sm.select-bordered.w-full
-      {:name (str "workout[" workout-id "][day]")
-       :required true}
-      [:option {:value "monday"} "Monday"]
-      [:option {:value "tuesday"} "Tuesday"]
-      [:option {:value "wednesday"} "Wednesday"]
-      [:option {:value "thursday"} "Thursday"]
-      [:option {:value "friday"} "Friday"]
-      [:option {:value "saturday"} "Saturday"]
-      [:option {:value "sunday"} "Sunday"]]]]
-   [:div.form-control
-    [:label.label [:span.label-text "Exercises"]]
-    [:select.select.select-sm.select-bordered
-     {:name (str "workout[" workout-id "][exercises]")
-      :multiple true
-      :size 5}
-     (for [ex exercises]
-       [:option {:value (:xt/id ex)} (:exercise/name ex)])]
-    [:label.label
-     [:span.label-text-alt "Hold Ctrl/Cmd to select multiple"]]]])
 
-(defn new-template-page [{:keys [exercises]}]
-  (page
-   {}
-   [:main.relative.flex.h-full.w-full.flex-col
-    [:div.flex.min-h-0.grow.flex-col.p-6
-     [:div.flex.items-center.justify-between.mb-6
-      [:h1.text-3xl.font-bold "New Template"]
-      [:a.btn.btn-ghost {:href "/app/templates"} "← Back"]]
 
-     [:div.max-w-2xl
-      (biff/form
-       {:action "/app/templates/create"}
-       [:div.form-control.mb-4
-        [:label.label [:span.label-text "Template Name"]]
-        [:input.input.input-bordered {:type "text" :name "name" :required true
-                                      :placeholder "e.g. Upper/Lower Split"}]]
 
-       [:div.mb-6
-        [:h3.text-lg.font-bold.mb-2 "Workouts"]
-        [:p.text-sm.text-gray-600.mb-4 "Add at least one workout to your template."]
-
-        [:div#workouts.space-y-4
-         (workout-form {:workout-id 0 :exercises exercises})]
-
-        [:button.btn.btn-sm.btn-outline
-         {:type "button"
-          :hx-get "/app/templates/workout-form"
-          :hx-target "#workouts"
-          :hx-swap "beforeend"}
-         "+ Add Workout"]]
-
-       [:div.flex.gap-2
-        [:button.btn.btn-primary {:type "submit"} "Create Template"]
-        [:a.btn.btn-ghost {:href "/app/templates"} "Cancel"]])]]]))
-
-(defn view-template-page [{:keys [template workouts]}]
-  (page
-   {}
-   [:main.relative.flex.h-full.w-full.flex-col
-    [:div.flex.min-h-0.grow.flex-col.p-6
-     [:div.flex.items-center.justify-between.mb-6
-      [:h1.text-3xl.font-bold (:template/name template)]
-      [:div.flex.gap-2
-       [:a.btn.btn-ghost {:href "/app/templates"} "← Back"]]]
-
-     [:div.max-w-4xl
-      (if (empty? workouts)
-        [:div.text-center.py-12
-         [:p.text-gray-500 "No workouts in this template."]]
-        [:div.space-y-6
-         (for [workout workouts]
-           [:div.card.bg-base-200 {:key (:xt/id workout)}
-            [:div.card-body
-             [:div.flex.justify-between.items-start
-              [:div
-               [:h2.card-title (:workout/name workout)]
-               [:p.text-sm.text-gray-600
-                (str "Day: " (name (:workout/day workout)))]]
-              [:div.badge.badge-primary (str (count (:exercises workout)) " exercises")]]
-
-             (when (seq (:exercises workout))
-               [:div.mt-4
-                [:h3.font-bold.mb-2 "Exercises:"]
-                [:ul.list-disc.list-inside.space-y-1
-                 (for [ex (:exercises workout)]
-                   [:li {:key (:xt/id ex)} (:exercise/name ex)])]])]])])]]]))
 
 (defn workout-page [{:keys [email merged-plan projection-events progress events]}]
   (page

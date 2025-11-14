@@ -5,8 +5,6 @@
             [com.barbiff.domain.hardcorefunctionalprojection :as proj]
             [com.barbiff.domain.setlogging :as setlog]
             [com.barbiff.domain.events :as events]
-            [com.barbiff.exercise :as exercise]
-            [com.barbiff.template :as template]
             [rum.core :as rum]
             [xtdb.api :as xt]))
 
@@ -91,13 +89,7 @@
 (defn get-active-plan
   "Get user's active plan structure. Falls back to sample-plan if none exists."
   [db user-id]
-  (if-let [active-plan (ffirst (biff/q db
-                                       '{:find [(pull ap [*])]
-                                         :in [user-id]
-                                         :where [[ap :active-plan/user user-id]]}
-                                       user-id))]
-    (template/build-template-structure db (:active-plan/template active-plan))
-    sample-plan))  ; Fallback to hardcoded plan
+  sample-plan)  ; Fallback to hardcoded plan
 
 (defn workout-page [{:keys [session biff/db]}]
   (let [{:user/keys [email]} (xt/entity db (:uid session))
@@ -114,87 +106,10 @@
                       :progress progress  ; Add for debugging
                       :events events})))
 
-;; Exercise Library Handlers
 
-(defn exercises-page [{:keys [session biff/db]}]
-  (let [exercises (exercise/get-user-exercises db (:uid session))]
-    (ui/exercises-page {:exercises exercises})))
-
-(defn seed-exercises [{:keys [session] :as ctx}]
-  (let [uid (:uid session)
-        exercise-entities (exercise/seed-exercises-for-user uid)]
-    (biff/submit-tx ctx exercise-entities)
-    {:status 303 :headers {"location" "/app/exercises"}}))
-
-;; Template Handlers
-
-(defn templates-page [{:keys [session biff/db]}]
-  (let [templates (template/get-user-templates db (:uid session))]
-    (ui/templates-page {:templates templates})))
-
-;; ============================================================================
-;; Template Management Handlers
-;; ============================================================================
-
-(defn new-template-page [{:keys [session biff/db]}]
-  (let [exercises (exercise/get-user-exercises db (:uid session))]
-    (ui/new-template-page {:exercises exercises})))
-
-(def workout-counter (atom 0))
-
-(defn get-workout-form [{:keys [session biff/db]}]
-  (let [exercises (exercise/get-user-exercises db (:uid session))
-        workout-id (swap! workout-counter inc)]
-    {:status 200
-     :headers {"content-type" "text/html"}
-     :body (rum/render-static-markup
-            (ui/workout-form {:workout-id workout-id :exercises exercises}))}))
-
-(defn delete-workout-form [_]
-  {:status 200
-   :headers {"content-type" "text/html"}
-   :body ""})
-
-(defn view-template [{:keys [biff/db path-params]}]
-  (let [template-id (parse-uuid (:id path-params))
-        template (template/get-template db template-id)
-        workouts-with-exercises (template/get-template-with-exercises db template-id)]
-    (ui/view-template-page {:template template
-                            :workouts workouts-with-exercises})))
-
-(defn- parse-workout-params
-  "Parse workout form params into structured data."
-  [params]
-  (when-let [workout-map (:workout params)]
-    (map (fn [[idx workout-data]]
-           {:index (if (int? idx) idx (parse-long (str idx)))
-            :name (:name workout-data)
-            :day (keyword (:day workout-data))
-            :exercise-ids (let [v (:exercises workout-data)]
-                            (if (vector? v) v [v]))})
-         (sort-by first workout-map))))
-
-(defn create-template [{:keys [session params] :as ctx}]
-  (let [uid (:uid session)
-        template-name (:name params)
-        workouts (parse-workout-params params)
-        entities (template/create-template-with-workouts
-                  {:user-id uid
-                   :name template-name
-                   :workouts workouts})]
-    (biff/submit-tx ctx entities)
-    {:status 303 :headers {"location" "/app/templates"}}))
 
 (def module
   {:routes ["/app" {:middleware [mid/wrap-signed-in]}
             ["/workout" {:get workout-page}]
             ["/workout/log-event" {:post log-event}]
-            ["/workout/log-set" {:post log-event}]
-            ["/exercises" {:get exercises-page}]
-            ["/exercises/seed" {:post seed-exercises}]
-            ["/templates" {:get templates-page}]
-            ["/templates/new" {:get new-template-page}]
-            ["/templates/create" {:post create-template}]
-            ["/templates/workout-form" {:get get-workout-form}]
-            ["/templates/workout-form/:workout-id" {:delete delete-workout-form}]
-            ["/templates/view/:id" {:get view-template}]]})
+            ["/workout/log-set" {:post log-event}]]})
